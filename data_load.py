@@ -1,3 +1,40 @@
+import os
+
+def create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_morph, db_path,
+                                reduced_DS, leads_flag):
+    db_path = os.getcwd()
+
+    features_labels_name = db_path + '/features/' + 'w_' + str(winL) + '_' + str(winR) + '_' + DS
+
+    if do_preprocess:
+        features_labels_name += '_rm_bsline'
+
+    if maxRR:
+        features_labels_name += '_maxRR'
+
+    if use_RR:
+        features_labels_name += '_RR'
+
+    if norm_RR:
+        features_labels_name += '_norm_RR'
+
+    for descp in compute_morph:
+        features_labels_name += '_' + descp
+
+    if reduced_DS:
+        features_labels_name += '_reduced'
+
+    if leads_flag[0] == 1:
+        features_labels_name += '_MLII'
+
+    if leads_flag[1] == 1:
+        features_labels_name += '_V1'
+
+    features_labels_name += '.p'
+
+    return features_labels_name
+
+
 def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_morph, db_path, reduced_DS, leads_flag):
     print("Runing train_SVM.py!")
 
