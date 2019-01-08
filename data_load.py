@@ -3,16 +3,14 @@ import gc
 import cPickle as pickle
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import butter, lfilter, freqz, iirnotch, medfilt, iirfilter
+from scipy.signal import lfilter, iirfilter
 import pandas as pd
-
 
 # Show a 2D plot with the data in beat
 def display_signal(beat):
     plt.plot(beat)
     plt.ylabel('Signal')
     plt.show()
-
 
 # Class for RR intervals features
 class RR_intervals:
@@ -22,7 +20,6 @@ class RR_intervals:
         self.post_R = np.array([])
         self.local_R = np.array([])
         self.global_R = np.array([])
-
 
 class mit_db:
     def __init__(self):
@@ -35,10 +32,8 @@ class mit_db:
         self.R_pos = []
         self.orig_R_pos = []
 
-
 def mmf(signal, alpha=0.2):
     return (1 - alpha) * np.median(signal) + alpha * np.mean(signal)
-
 
 def mean_median_filter(signal, window=300, alpha=0.6):
     # Always odd  window
@@ -61,7 +56,6 @@ def mean_median_filter(signal, window=300, alpha=0.6):
 
     return mmfoutput
 
-
 def notch_filter(data, freq_to_remove, sample_freq=360.0):
     fs = sample_freq
     nyq = fs / 2.0
@@ -72,7 +66,6 @@ def notch_filter(data, freq_to_remove, sample_freq=360.0):
     b, a = iirfilter(5, [low, high], btype='bandstop')
     filtered_data = lfilter(b, a, data)
     return filtered_data
-
 
 def create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_morph, db_path,
                                 reduced_DS, leads_flag):
@@ -120,7 +113,6 @@ def create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, no
     features_labels_name += '.p'
 
     return features_labels_name
-
 
 def load_signal(DS, winL, winR, do_preprocess):
     class_ID = [[] for i in range(len(DS))]
@@ -246,8 +238,6 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
         features, labels, patient_num_beats = pickle.load(f)
         gc.enable()
         f.close()
-
-
     else:
         print "Loading MIT BIH arr (" + DS + ") ..."
         # 102 and 104 do not have the MLII lead data and 114 have the data on second coloumn
