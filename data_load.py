@@ -182,7 +182,7 @@ def load_signal(DS, winL, winR, do_preprocess):
         print filename
         data = pd.read_csv(filename, delimiter="\t")
 
-        for i in data.shape[0]:
+        for i in range(len(data)):
             a = data.values[i][0]
             aa = a.split()
             pos = int(aa[1])
@@ -287,10 +287,6 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
                 my_db = load_signal(DS2, winL, winR, do_preprocess)
 
             print("Saving signal processed data ...")
-            # Save data
-            # Protocol version 0 itr_features_balanceds the original ASCII protocol and is backwards compatible with earlier versions of Python.
-            # Protocol version 1 is the old binary format which is also compatible with earlier versions of Python.
-            # Protocol version 2 was introduced in Python 2.3. It provides much more efficient pickling of new-style classes.
             f = open(mit_pickle_name, 'wb')
             pickle.dump(my_db, f, 2)
             f.close
