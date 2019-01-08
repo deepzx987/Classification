@@ -1,9 +1,96 @@
 import os
+import gc
+import cPickle as pickle
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import butter, lfilter, freqz, iirnotch, medfilt, iirfilter
+import pandas as pd
+
+
+# Show a 2D plot with the data in beat
+def display_signal(beat):
+    plt.plot(beat)
+    plt.ylabel('Signal')
+    plt.show()
+
+
+# Class for RR intervals features
+class RR_intervals:
+    def __init__(self):
+        # Instance atributes
+        self.pre_R = np.array([])
+        self.post_R = np.array([])
+        self.local_R = np.array([])
+        self.global_R = np.array([])
+
+
+class mit_db:
+    def __init__(self):
+        # Instance attributes
+        self.filename = []
+        self.raw_signal = []
+        self.beat = np.empty([])  # record, beat, lead
+        self.class_ID = []
+        self.valid_R = []
+        self.R_pos = []
+        self.orig_R_pos = []
+
+
+def mmf(signal, alpha=0.2):
+    return (1 - alpha) * np.median(signal) + alpha * np.mean(signal)
+
+
+def mean_median_filter(signal, window=300, alpha=0.6):
+    # Always odd  window
+    if window % 2 == 0:
+        window = window - 1
+
+    # Appended signal
+    new_signal = []
+    for i in range((window - 1) / 2):
+        new_signal.append(signal[0])
+    for i in range(len(signal)):
+        new_signal.append(signal[i])
+    for i in range((window - 1) / 2):
+        new_signal.append(signal[-1])
+
+    # Windowing
+    mmfoutput = []
+    for i in range(len(signal)):
+        mmfoutput.append(mmf(new_signal[i:i + window], alpha))
+
+    return mmfoutput
+
+
+def notch_filter(data, freq_to_remove, sample_freq=360.0):
+    fs = sample_freq
+    nyq = fs / 2.0
+    low = freq_to_remove - 1.0
+    high = freq_to_remove + 10.0
+    low = low / nyq
+    high = high / nyq
+    b, a = iirfilter(5, [low, high], btype='bandstop')
+    filtered_data = lfilter(b, a, data)
+    return filtered_data
+
 
 def create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_morph, db_path,
                                 reduced_DS, leads_flag):
-    db_path = os.getcwd()
+    """
 
+    :param DS:
+    :param winL:
+    :param winR:
+    :param do_preprocess:
+    :param maxRR:
+    :param use_RR:
+    :param norm_RR:
+    :param compute_morph:
+    :param db_path:
+    :param reduced_DS:
+    :param leads_flag:
+    :return:
+    """
     features_labels_name = db_path + '/features/' + 'w_' + str(winL) + '_' + str(winR) + '_' + DS
 
     if do_preprocess:
@@ -35,14 +122,124 @@ def create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, no
     return features_labels_name
 
 
+def load_signal(DS, winL, winR, do_preprocess):
+    class_ID = [[] for i in range(len(DS))]
+    beat = [[] for i in range(len(DS))]  # record, beat, lead
+    R_poses = [np.array([]) for i in range(len(DS))]
+    Original_R_poses = [np.array([]) for i in range(len(DS))]
+    valid_R = [np.array([]) for i in range(len(DS))]
+    my_db = mit_db()
+
+    size_RR_max = 20
+
+    pathDB = os.getcwd()
+    print pathDB
+    DB_name = 'data'
+
+    # Read files: signal (.csv )  annotations (.txt)
+    fRecords = list()
+    fAnnotations = list()
+
+    lst = os.listdir(pathDB + "/" + DB_name + "/csv")
+    lst.sort()
+    for filename in lst:
+        if filename.endswith(".csv"):
+            if int(filename[0:3]) in DS:
+                fRecords.append(filename)
+        elif filename.endswith(".txt"):
+            if int(filename[0:3]) in DS:
+                fAnnotations.append(filename)
+
+    MITBIH_classes = ['N', 'L', 'R', 'e', 'j', 'A', 'a', 'J', 'S', 'V', 'E', 'F', 'P', '/', 'f', 'u']
+    AAMI_classes = [['N', 'L', 'R'], ['A', 'a', 'J', 'S', 'e', 'j'], ['V', 'E'], ['F'], ['P', '/', 'f', 'u']]
+
+    RAW_signals = []
+
+    # for r, a in zip(fRecords, fAnnotations):
+    for r in range(0, len(fRecords)):
+
+        print 'Processing signal ' + str(r) + ' / ' + str(len(fRecords)) + '...'
+
+        filename = pathDB + "/" + DB_name + "/csv/" + fRecords[r]
+        print filename
+        df = pd.read_csv(filename)
+        MLII = df['\'MLII\''].values
+        V1 = df['\'V1\''].values
+        RAW_signals.append((MLII, V1))  # NOTE a copy must be created in order to preserve the original signal
+        # display_signal(MLII)
+
+        if do_preprocess:
+            MLII = MLII - np.mean(MLII)
+            # Remove power_line_interference
+            MLII = notch_filter(data=MLII, freq_to_remove=50.0)
+            baseline = mean_median_filter(MLII, 300, 0.6)
+            baseline = mean_median_filter(baseline, 600, 0.6)
+            baseline = np.array(baseline)
+            MLII = MLII - baseline
+
+            V1 = V1 - np.mean(V1)
+            # Remove power_line_interference
+            V1 = notch_filter(data=V1, freq_to_remove=50.0)
+            baseline = mean_median_filter(V1, 300, 0.6)
+            baseline = mean_median_filter(baseline, 600, 0.6)
+            baseline = np.array(baseline)
+            V1 = V1 - baseline
+
+        # 2. Read annotations
+        filename = pathDB + "/" + DB_name + "/csv/" + fAnnotations[r]
+        print filename
+        data = pd.read_csv(filename, delimiter="\t")
+
+        for i in data.shape[0]:
+            a = data.values[i][0]
+            aa = a.split()
+            pos = int(aa[1])
+            originalpos = int(aa[1])
+            classAnttd = aa[2]
+            if size_RR_max < pos < (len(MLII) - size_RR_max):
+                # value = max(MLII[pos - size_RR_max: pos + size_RR_max])
+                index = np.argmax(MLII[pos - size_RR_max: pos + size_RR_max])
+                pos = pos - size_RR_max + index
+
+            if classAnttd in MITBIH_classes:
+                if winL < pos < (len(MLII) - winR):
+                    beat[r].append((MLII[pos - winL: pos + winR], V1[pos - winL: pos + winR]))
+                    for i in range(0, len(AAMI_classes)):
+                        if classAnttd in AAMI_classes[i]:
+                            class_AAMI = i
+                            break  # exit loop
+                    # convert class
+                    class_ID[r].append(class_AAMI)
+
+                    valid_R[r] = np.append(valid_R[r], 1)
+                else:
+                    valid_R[r] = np.append(valid_R[r], 0)
+            else:
+                valid_R[r] = np.append(valid_R[r], 0)
+
+            R_poses[r] = np.append(R_poses[r], pos)
+            Original_R_poses[r] = np.append(Original_R_poses[r], originalpos)
+
+    # Set the data into a bigger structure that keep all the records!
+    my_db.filename = fRecords
+    my_db.raw_signal = RAW_signals
+    my_db.beat = beat  # record, beat, lead
+    my_db.class_ID = class_ID
+    my_db.valid_R = valid_R
+    my_db.R_pos = R_poses
+    my_db.orig_R_pos = Original_R_poses
+
+    return my_db
+
+
 def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_morph, db_path, reduced_DS, leads_flag):
-    print("Runing train_SVM.py!")
+    print 'Runing train_SVM.py!'
 
     features_labels_name = create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR,
                                                        compute_morph, db_path, reduced_DS, leads_flag)
 
     if os.path.isfile(features_labels_name):
-        print("Loading pickle: " + features_labels_name + "...")
+        print 'Loading pickle: ' + features_labels_name + '...'
         f = open(features_labels_name, 'rb')
         # disable garbage collector
         gc.disable()  # this improve the required loading time!
@@ -52,10 +249,10 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
 
     else:
-        print("Loading MIT BIH arr (" + DS + ") ...")
-
+        print "Loading MIT BIH arr (" + DS + ") ..."
+        # 102 and 104 do not have the MLII lead data and 114 have the data on second coloumn
         # ML-II
-        if reduced_DS == False:
+        if not reduced_DS:
             DS1 = [101, 106, 108, 109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220,
                    223, 230]
             DS2 = [100, 103, 105, 111, 113, 117, 121, 123, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232,
@@ -66,7 +263,6 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
             DS1 = [101, 106, 108, 109, 112, 115, 118, 119, 201, 203, 205, 207, 208, 209, 215, 220, 223, 230]
             DS2 = [105, 111, 113, 121, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232, 233, 234]
 
-        db_path = os.getcwd()
         mit_pickle_name = db_path + '/python_mit'
 
         print mit_pickle_name
