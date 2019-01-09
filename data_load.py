@@ -156,7 +156,10 @@ def load_signal(DS, winL, winR, do_preprocess):
         print filename
         df = pd.read_csv(filename)
         MLII = df['\'MLII\''].values
-        V1 = df['\'V1\''].values
+        if fRecords[r][:3] == '114':
+            V1 = df['\'V5\''].values
+        else:
+            V1 = df['\'V1\''].values
         RAW_signals.append((MLII, V1))  # NOTE a copy must be created in order to preserve the original signal
         # display_signal(MLII)
 
