@@ -149,20 +149,25 @@ def load_signal(DS, winL, winR, do_preprocess):
 
     # for r, a in zip(fRecords, fAnnotations):
     for r in range(0, len(fRecords)):
-
-        print 'Processing signal ' + str(r) + ' / ' + str(len(fRecords)) + '...'
+        # TODO parallelize the cleaning process
+        # pool = multiprocessing.Pool(4)
+        # out1, out2, out3 = zip(*pool.map(calc_stuff, range(0, 10 * offset, offset)))
+        # We will work only on MLII data as other lead change with the patient
+        print 'Processing signal ' + str(r+1) + ' / ' + str(len(fRecords)) + '...'
 
         filename = pathDB + "/" + DB_name + "/csv/" + fRecords[r]
         print filename
         df = pd.read_csv(filename)
         MLII = df['\'MLII\''].values
-        if fRecords[r][:3] == '114':
-            V1 = df['\'V5\''].values
-        else:
-            V1 = df['\'V1\''].values
-        RAW_signals.append((MLII, V1))  # NOTE a copy must be created in order to preserve the original signal
+        # if fRecords[r][:3] == '114':
+        #     V1 = df['\'V5\''].values
+        # else:
+        #     V1 = df['\'V1\''].values
+        # RAW_signals.append((MLII, V1))  # NOTE a copy must be created in order to preserve the original signal
+        RAW_signals.append(MLII)  # NOTE a copy must be created in order to preserve the original signal
         # display_signal(MLII)
 
+        # 1. Cleaning the signal
         if do_preprocess:
             MLII = MLII - np.mean(MLII)
             # Remove power_line_interference
@@ -172,13 +177,13 @@ def load_signal(DS, winL, winR, do_preprocess):
             baseline = np.array(baseline)
             MLII = MLII - baseline
 
-            V1 = V1 - np.mean(V1)
-            # Remove power_line_interference
-            V1 = notch_filter(data=V1, freq_to_remove=50.0)
-            baseline = mean_median_filter(V1, 300, 0.6)
-            baseline = mean_median_filter(baseline, 600, 0.6)
-            baseline = np.array(baseline)
-            V1 = V1 - baseline
+            # V1 = V1 - np.mean(V1)
+            # # Remove power_line_interference
+            # V1 = notch_filter(data=V1, freq_to_remove=50.0)
+            # baseline = mean_median_filter(V1, 300, 0.6)
+            # baseline = mean_median_filter(baseline, 600, 0.6)
+            # baseline = np.array(baseline)
+            # V1 = V1 - baseline
 
         # 2. Read annotations
         filename = pathDB + "/" + DB_name + "/csv/" + fAnnotations[r]
@@ -198,7 +203,8 @@ def load_signal(DS, winL, winR, do_preprocess):
 
             if classAnttd in MITBIH_classes:
                 if winL < pos < (len(MLII) - winR):
-                    beat[r].append((MLII[pos - winL: pos + winR], V1[pos - winL: pos + winR]))
+                    # beat[r].append((MLII[pos - winL: pos + winR], V1[pos - winL: pos + winR]))
+                    beat[r].append(MLII[pos - winL: pos + winR])
                     for i in range(0, len(AAMI_classes)):
                         if classAnttd in AAMI_classes[i]:
                             class_AAMI = i
