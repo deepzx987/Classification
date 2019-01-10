@@ -1,4 +1,4 @@
-from data_load import *
+from classes import *
 
 def compute_rr_intervals(R_poses):
     features_RR = RR_intervals()

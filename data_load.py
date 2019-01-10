@@ -1,36 +1,10 @@
 import os
 import gc
 import cPickle as pickle
-import numpy as np
-import matplotlib.pyplot as plt
 from scipy.signal import lfilter, iirfilter
 import pandas as pd
 
-# Show a 2D plot with the data in beat
-def display_signal(beat):
-    plt.plot(beat)
-    plt.ylabel('Signal')
-    plt.show()
-
-# Class for RR intervals features
-class RR_intervals:
-    def __init__(self):
-        # Instance atributes
-        self.pre_R = np.array([])
-        self.post_R = np.array([])
-        self.local_R = np.array([])
-        self.global_R = np.array([])
-
-class mit_db:
-    def __init__(self):
-        # Instance attributes
-        self.filename = []
-        self.raw_signal = []
-        self.beat = np.empty([])  # record, beat, lead
-        self.class_ID = []
-        self.valid_R = []
-        self.R_pos = []
-        self.orig_R_pos = []
+from features import *
 
 def mmf(signal, alpha=0.2):
     return (1 - alpha) * np.median(signal) + alpha * np.mean(signal)
@@ -264,25 +238,19 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
         mit_pickle_name = db_path + '/python_mit'
 
-        print mit_pickle_name
-
         if reduced_DS:
             mit_pickle_name = mit_pickle_name + '_reduced_'
 
         if do_preprocess:
             mit_pickle_name = mit_pickle_name + '_rm_bsline'
 
-        print mit_pickle_name
-
-        mit_pickle_name = mit_pickle_name + '_wL_' + str(winL) + '_wR_' + str(winR)
-        print mit_pickle_name
-
-        mit_pickle_name = mit_pickle_name + '_' + DS + '.p'
+        mit_pickle_name = mit_pickle_name + '_wL_' + str(winL) + '_wR_' + str(winR) + '_' + DS + '.p'
 
         print mit_pickle_name
 
         # If the data with that configuration has been already computed Load pickle
         if os.path.isfile(mit_pickle_name):
+            print 'Loading Pickle' + mit_pickle_name + '...'
             f = open(mit_pickle_name, 'rb')
             # disable garbage collector
             gc.disable()  # this improve the required loading time!
@@ -298,7 +266,7 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
             print("Saving signal processed data ...")
             f = open(mit_pickle_name, 'wb')
             pickle.dump(my_db, f, 2)
-            f.close
+            f.close()
 
         features = np.array([], dtype=float)
         labels = np.array([], dtype=np.int32)
@@ -319,33 +287,42 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
             for p in range(len(my_db.beat)):
                 if maxRR:
-                    RR[p] = compute_RR_intervals(my_db.R_pos[p])
+                    RR[p] = compute_rr_intervals(my_db.R_pos[p])
                 else:
-                    RR[p] = compute_RR_intervals(my_db.orig_R_pos[p])
+                    RR[p] = compute_rr_intervals(my_db.orig_R_pos[p])
 
-                RR[p].pre_R = RR[p].pre_R[(my_db.valid_R[p] == 1)]
+                # choose all the beats which are valid
+                # RR[p].pre_R = RR[p].pre_R[(my_db.valid_R[p] == 1)]
                 RR[p].post_R = RR[p].post_R[(my_db.valid_R[p] == 1)]
                 RR[p].local_R = RR[p].local_R[(my_db.valid_R[p] == 1)]
                 RR[p].global_R = RR[p].global_R[(my_db.valid_R[p] == 1)]
 
         if use_RR:
-            f_RR = np.empty((0, 4))
+            # f_RR = np.empty((0, 4))
+            f_RR = np.empty((0, 3))
             for p in range(len(RR)):
-                row = np.column_stack((RR[p].pre_R, RR[p].post_R, RR[p].local_R, RR[p].global_R))
+                # row = np.column_stack((RR[p].pre_R, RR[p].post_R, RR[p].local_R, RR[p].global_R))
+                row = np.column_stack((RR[p].post_R, RR[p].local_R, RR[p].global_R))
                 f_RR = np.vstack((f_RR, row))
 
-            features = np.column_stack((features, f_RR)) if features.size else f_RR
+            if features.size:
+                features = np.column_stack((features, f_RR))
+            else:
+                features = f_RR
 
         if norm_RR:
-            f_RR_norm = np.empty((0, 4))
+            # f_RR_norm = np.empty((0, 4))
+            f_RR_norm = np.empty((0, 3))
             for p in range(len(RR)):
                 # Compute avg values!
-                avg_pre_R = np.average(RR[p].pre_R)
+                # avg_pre_R = np.average(RR[p].pre_R)
                 avg_post_R = np.average(RR[p].post_R)
                 avg_local_R = np.average(RR[p].local_R)
                 avg_global_R = np.average(RR[p].global_R)
 
-                row = np.column_stack((RR[p].pre_R / avg_pre_R, RR[p].post_R / avg_post_R, RR[p].local_R / avg_local_R,
+                # row = np.column_stack((RR[p].pre_R / avg_pre_R, RR[p].post_R / avg_post_R, RR[p].local_R /
+                # avg_local_R, RR[p].global_R / avg_global_R))
+                row = np.column_stack((RR[p].post_R / avg_post_R, RR[p].local_R / avg_local_R,
                                        RR[p].global_R / avg_global_R))
                 f_RR_norm = np.vstack((f_RR_norm, row))
 
