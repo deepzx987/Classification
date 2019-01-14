@@ -3,11 +3,14 @@ import gc
 import cPickle as pickle
 from scipy.signal import lfilter, iirfilter
 import pandas as pd
+import time
 
 from features import *
 
+
 def mmf(signal, alpha=0.2):
     return (1 - alpha) * np.median(signal) + alpha * np.mean(signal)
+
 
 def mean_median_filter(signal, window=300, alpha=0.6):
     # Always odd  window
@@ -30,6 +33,7 @@ def mean_median_filter(signal, window=300, alpha=0.6):
 
     return mmfoutput
 
+
 def notch_filter(data, freq_to_remove, sample_freq=360.0):
     fs = sample_freq
     nyq = fs / 2.0
@@ -40,6 +44,7 @@ def notch_filter(data, freq_to_remove, sample_freq=360.0):
     b, a = iirfilter(5, [low, high], btype='bandstop')
     filtered_data = lfilter(b, a, data)
     return filtered_data
+
 
 def create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_morph, db_path,
                                 reduced_DS, leads_flag):
@@ -93,6 +98,7 @@ def create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, no
 
     return features_labels_name
 
+
 def load_signal(DS, winL, winR, do_preprocess):
     class_ID = [[] for i in range(len(DS))]
     beat = [[] for i in range(len(DS))]  # record, beat, lead
@@ -132,19 +138,21 @@ def load_signal(DS, winL, winR, do_preprocess):
         # pool = multiprocessing.Pool(4)
         # out1, out2, out3 = zip(*pool.map(calc_stuff, range(0, 10 * offset, offset)))
         # We will work only on MLII data as other lead change with the patient
-        print 'Processing signal ' + str(r+1) + ' / ' + str(len(fRecords)) + '...'
-
+        print 'Processing signal ' + str(r + 1) + ' / ' + str(len(fRecords)) + '...'
         filename = pathDB + "/" + DB_name + "/csv/" + fRecords[r]
         print filename
         df = pd.read_csv(filename)
         MLII = df['\'MLII\''].values
-        # if fRecords[r][:3] == '114':
-        #     V1 = df['\'V5\''].values
-        # else:
-        #     V1 = df['\'V1\''].values
-        # RAW_signals.append((MLII, V1))  # NOTE a copy must be created in order to preserve the original signal
-        RAW_signals.append(MLII)  # NOTE a copy must be created in order to preserve the original signal
-        # display_signal(MLII)
+        if fRecords[r][:3] == '114' or fRecords[r][:3] == '123' or fRecords[r][:3] == '100':
+            V1 = df['\'V5\''].values
+        elif fRecords[r][:3] == '117' or fRecords[r][:3] == '103':
+            V1 = df['\'V2\''].values
+        elif fRecords[r][:3] == '124':
+            V1 = df['\'V4\''].values
+        else:
+            V1 = df['\'V1\''].values
+
+        RAW_signals.append((MLII, V1))  # NOTE a copy must be created in order to preserve the original signal
 
         # 1. Cleaning the signal
         if do_preprocess:
@@ -156,13 +164,13 @@ def load_signal(DS, winL, winR, do_preprocess):
             baseline = np.array(baseline)
             MLII = MLII - baseline
 
-            # V1 = V1 - np.mean(V1)
-            # # Remove power_line_interference
-            # V1 = notch_filter(data=V1, freq_to_remove=50.0)
-            # baseline = mean_median_filter(V1, 300, 0.6)
-            # baseline = mean_median_filter(baseline, 600, 0.6)
-            # baseline = np.array(baseline)
-            # V1 = V1 - baseline
+            V1 = V1 - np.mean(V1)
+            # Remove power_line_interference
+            V1 = notch_filter(data=V1, freq_to_remove=50.0)
+            baseline = mean_median_filter(V1, 300, 0.6)
+            baseline = mean_median_filter(baseline, 600, 0.6)
+            baseline = np.array(baseline)
+            V1 = V1 - baseline
 
         # 2. Read annotations
         filename = pathDB + "/" + DB_name + "/csv/" + fAnnotations[r]
@@ -182,8 +190,7 @@ def load_signal(DS, winL, winR, do_preprocess):
 
             if classAnttd in MITBIH_classes:
                 if winL < pos < (len(MLII) - winR):
-                    # beat[r].append((MLII[pos - winL: pos + winR], V1[pos - winL: pos + winR]))
-                    beat[r].append(MLII[pos - winL: pos + winR])
+                    beat[r].append((MLII[pos - winL: pos + winR], V1[pos - winL: pos + winR]))
                     for i in range(0, len(AAMI_classes)):
                         if classAnttd in AAMI_classes[i]:
                             class_AAMI = i
@@ -298,17 +305,15 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
                     RR[p] = compute_rr_intervals(my_db.orig_R_pos[p])
 
                 # choose all the beats which are valid
-                # RR[p].pre_R = RR[p].pre_R[(my_db.valid_R[p] == 1)]
+                RR[p].pre_R = RR[p].pre_R[(my_db.valid_R[p] == 1)]
                 RR[p].post_R = RR[p].post_R[(my_db.valid_R[p] == 1)]
                 RR[p].local_R = RR[p].local_R[(my_db.valid_R[p] == 1)]
                 RR[p].global_R = RR[p].global_R[(my_db.valid_R[p] == 1)]
 
         if use_RR:
-            # f_RR = np.empty((0, 4))
-            f_RR = np.empty((0, 3))
+            f_RR = np.empty((0, 4))
             for p in range(len(RR)):
-                # row = np.column_stack((RR[p].pre_R, RR[p].post_R, RR[p].local_R, RR[p].global_R))
-                row = np.column_stack((RR[p].post_R, RR[p].local_R, RR[p].global_R))
+                row = np.column_stack((RR[p].pre_R, RR[p].post_R, RR[p].local_R, RR[p].global_R))
                 f_RR = np.vstack((f_RR, row))
 
             if features.size:
@@ -317,19 +322,16 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
                 features = f_RR
 
         if norm_RR:
-            # f_RR_norm = np.empty((0, 4))
-            f_RR_norm = np.empty((0, 3))
+            f_RR_norm = np.empty((0, 4))
+            # f_RR_norm = np.empty((0, 3))
             for p in range(len(RR)):
                 # Compute avg values!
-                # avg_pre_R = np.average(RR[p].pre_R)
+                avg_pre_R = np.average(RR[p].pre_R)
                 avg_post_R = np.average(RR[p].post_R)
                 avg_local_R = np.average(RR[p].local_R)
                 avg_global_R = np.average(RR[p].global_R)
 
-                # row = np.column_stack((RR[p].pre_R / avg_pre_R, RR[p].post_R / avg_post_R, RR[p].local_R /
-                # avg_local_R, RR[p].global_R / avg_global_R))
-                row = np.column_stack((RR[p].post_R / avg_post_R, RR[p].local_R / avg_local_R,
-                                       RR[p].global_R / avg_global_R))
+                row = np.column_stack((RR[p].pre_R / avg_pre_R, RR[p].post_R / avg_post_R, RR[p].local_R / avg_local_R, RR[p].global_R / avg_global_R))
                 f_RR_norm = np.vstack((f_RR_norm, row))
 
             if features.size:
@@ -339,6 +341,29 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
         # We have obtained RR values: both actual(3) and normalized(3) stacked vertically (51002, 6)
         # invalid beats (52536, 6)
+
+        # if 'resample_10' in compute_morph:
+        #     print("Resample_10 ...")
+        #     start = time.time()
+        #
+        #     f_raw = np.empty((0, 10 * num_leads))
+        #
+        #     for p in range(len(my_db.beat)):
+        #         for beat in my_db.beat[p]:
+        #             f_raw_lead = np.empty([])
+        #             for s in range(2):
+        #                 if leads_flag[s] == 1:
+        #                     resamp_beat = scipy.signal.resample(beat[s], 10)
+        #                     if f_raw_lead.size == 1:
+        #                         f_raw_lead = resamp_beat
+        #                     else:
+        #                         f_raw_lead = np.hstack((f_raw_lead, resamp_beat))
+        #             f_raw = np.vstack((f_raw, f_raw_lead))
+        #
+        #     features = np.column_stack((features, f_raw)) if features.size else f_raw
+        #
+        #     end = time.time()
+        #     print("Time resample: " + str(format(end - start, '.2f')) + " sec")
 
         # call other morphological features from here
 
