@@ -5,6 +5,10 @@ def main(multi_mode='ovo', winL=90, winR=90, do_preprocess=True, use_weight_clas
          maxRR=True, use_RR=True, norm_RR=True, compute_morph={''}, oversamp_method='',
          pca_k='', feature_selection='', do_cross_val='', C_value=0.001, gamma_value=0.0,
          reduced_DS=False, leads_flag=[1, 0]):
+    """
+
+    :string compute_morph: all the types of features u want to calculate
+    """
     db_path = os.getcwd()
     print db_path
 
@@ -28,28 +32,20 @@ winR = 90
 do_preprocess = True
 use_weight_class = True
 maxRR = True
-compute_morph = {''}  # 'wvlt', 'HOS', 'myMorph'
-
+compute_morph = {'resample_10'}  # 'wvlt', 'HOS', 'myMorph'
 multi_mode = 'ovo'
 voting_strategy = 'ovo_voting'  # 'ovo_voting_exp', 'ovo_voting_both'
-
 use_RR = False
 norm_RR = False
-
 oversamp_method = ''
 feature_selection = ''
 do_cross_val = ''
 C_value = 0.001
 reduced_DS = False  # To select only patients in common with MLII and V1
-leads_flag = [1, 0]  # MLII, V1
-
-pca_k = 0
-
-################
-
-# With feature selection
+# Will use both the leads: it will create redundant data but it will also increase the instances of small classes.
+leads_flag = [1, 1]  # MLII, V1
+pca_k = '0'
 ov_methods = {''}  # , 'SMOTE_regular'}
-
 C_values = {0.001, 0.01, 0.1, 1, 10, 100}
 gamma_values = {0.0}
 gamma_value = 0.0

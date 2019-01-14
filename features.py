@@ -46,9 +46,6 @@ def compute_rr_intervals(R_poses):
 
     return features_RR
 
-
-# num_leads = np.sum(leads_flag)
-
 # Raw
 
 # if 'raw' in compute_morph:

@@ -1,7 +1,7 @@
 import os
 import gc
 import cPickle as pickle
-from scipy.signal import lfilter, iirfilter
+from scipy.signal import lfilter, iirfilter, resample
 import pandas as pd
 import time
 
@@ -323,7 +323,6 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
         if norm_RR:
             f_RR_norm = np.empty((0, 4))
-            # f_RR_norm = np.empty((0, 3))
             for p in range(len(RR)):
                 # Compute avg values!
                 avg_pre_R = np.average(RR[p].pre_R)
@@ -342,28 +341,27 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
         # We have obtained RR values: both actual(3) and normalized(3) stacked vertically (51002, 6)
         # invalid beats (52536, 6)
 
-        # if 'resample_10' in compute_morph:
-        #     print("Resample_10 ...")
-        #     start = time.time()
-        #
-        #     f_raw = np.empty((0, 10 * num_leads))
-        #
-        #     for p in range(len(my_db.beat)):
-        #         for beat in my_db.beat[p]:
-        #             f_raw_lead = np.empty([])
-        #             for s in range(2):
-        #                 if leads_flag[s] == 1:
-        #                     resamp_beat = scipy.signal.resample(beat[s], 10)
-        #                     if f_raw_lead.size == 1:
-        #                         f_raw_lead = resamp_beat
-        #                     else:
-        #                         f_raw_lead = np.hstack((f_raw_lead, resamp_beat))
-        #             f_raw = np.vstack((f_raw, f_raw_lead))
-        #
-        #     features = np.column_stack((features, f_raw)) if features.size else f_raw
-        #
-        #     end = time.time()
-        #     print("Time resample: " + str(format(end - start, '.2f')) + " sec")
+        num_leads = np.sum(leads_flag)
+        #  If both leads then 2 leads and if only MLII then 1 lead
+        if 'resample_10' in compute_morph:
+            print "Resample_10 ..."
+            start = time.time()
+            f_raw = np.empty((0, 10 * num_leads))
+            # 10 columns or 20 columns depending on the number of leads
+            for p in range(len(my_db.beat)):
+                for beat in my_db.beat[p]:
+                    f_raw_lead = np.empty([])
+                    for s in range(2):
+                        if leads_flag[s] == 1:
+                            resamp_beat = resample(beat[s], 10)
+                            if f_raw_lead.size == 1:
+                                f_raw_lead = resamp_beat
+                            else:
+                                f_raw_lead = np.hstack((f_raw_lead, resamp_beat))
+                    f_raw = np.vstack((f_raw, f_raw_lead))
+            features = np.column_stack((features, f_raw)) if features.size else f_raw
+            end = time.time()
+            print("Time resample: " + str(format(end - start, '.2f')) + " sec")
 
         # call other morphological features from here
 
