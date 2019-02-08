@@ -10,21 +10,21 @@ def main(multi_mode='ovo', winL=90, winR=90, do_preprocess=True, use_weight_clas
     :string compute_morph: all the types of features u want to calculate
     """
     db_path = os.getcwd()
-    print (db_path)
+    print(db_path)
 
     # Load train data
-    print ('LOADING TRAIN DATA')
+    print('LOADING TRAIN DATA')
     [tr_features, tr_labels, tr_patient_num_beats] = load_mit_db('DS1', winL, winR, do_preprocess,
                                                                  maxRR, use_RR, norm_RR, compute_morph,
                                                                  db_path, reduced_DS, leads_flag)
-    print ('LOADED TRAIN DATA')
+    print('LOADED TRAIN DATA')
 
     # Load test data
-    print ('LOADING TEST DATA')
+    print('LOADING TEST DATA')
     [eval_features, eval_labels, eval_patient_num_beats] = load_mit_db('DS2', winL, winR, do_preprocess,
                                                                        maxRR, use_RR, norm_RR, compute_morph, db_path,
                                                                        reduced_DS, leads_flag)
-    print ('LOADED TEST DATA')
+    print('LOADED TEST DATA')
 
 
 winL = 90
