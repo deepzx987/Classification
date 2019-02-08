@@ -12,6 +12,7 @@ class RR_intervals:
     def __init__(self):
         # Instance atributes
         # self.pre_R = np.array([])
+        self.pre_R = np.array([])
         self.post_R = np.array([])
         self.local_R = np.array([])
         self.global_R = np.array([])
