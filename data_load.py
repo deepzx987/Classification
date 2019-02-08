@@ -1,16 +1,15 @@
 import os
 import gc
-import cPickle as pickle
+import pickle
 from scipy.signal import lfilter, iirfilter, resample
 import pandas as pd
-import time
+# import time
 
 from features import *
 
 
 def mmf(signal, alpha=0.2):
     return (1 - alpha) * np.median(signal) + alpha * np.mean(signal)
-
 
 def mean_median_filter(signal, window=300, alpha=0.6):
     # Always odd  window
@@ -19,11 +18,11 @@ def mean_median_filter(signal, window=300, alpha=0.6):
 
     # Appended signal
     new_signal = []
-    for i in range((window - 1) / 2):
+    for i in range(int((window - 1) / 2)):
         new_signal.append(signal[0])
     for i in range(len(signal)):
         new_signal.append(signal[i])
-    for i in range((window - 1) / 2):
+    for i in range(int((window - 1) / 2)):
         new_signal.append(signal[-1])
 
     # Windowing
@@ -110,7 +109,7 @@ def load_signal(DS, winL, winR, do_preprocess):
     size_RR_max = 20
 
     pathDB = os.getcwd()
-    print pathDB
+    print (pathDB)
     DB_name = 'data'
 
     # Read files: signal (.csv )  annotations (.txt)
@@ -138,9 +137,9 @@ def load_signal(DS, winL, winR, do_preprocess):
         # pool = multiprocessing.Pool(4)
         # out1, out2, out3 = zip(*pool.map(calc_stuff, range(0, 10 * offset, offset)))
         # We will work only on MLII data as other lead change with the patient
-        print 'Processing signal ' + str(r + 1) + ' / ' + str(len(fRecords)) + '...'
+        print ('Processing signal ' + str(r + 1) + ' / ' + str(len(fRecords)) + '...')
         filename = pathDB + "/" + DB_name + "/csv/" + fRecords[r]
-        print filename
+        print (filename)
         df = pd.read_csv(filename)
         MLII = df['\'MLII\''].values
         if fRecords[r][:3] == '114' or fRecords[r][:3] == '123' or fRecords[r][:3] == '100':
@@ -174,7 +173,7 @@ def load_signal(DS, winL, winR, do_preprocess):
 
         # 2. Read annotations
         filename = pathDB + "/" + DB_name + "/csv/" + fAnnotations[r]
-        print filename
+        print (filename)
         data = pd.read_csv(filename, delimiter="\t")
 
         for i in range(len(data)):
@@ -221,15 +220,15 @@ def load_signal(DS, winL, winR, do_preprocess):
 
 def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_morph, db_path, reduced_DS, leads_flag):
     # global RR
-    print 'Runing train_SVM.py!'
+    print ('Runing train_SVM.py!')
 
     features_labels_name = create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR,
                                                        compute_morph, db_path, reduced_DS, leads_flag)
-    print features_labels_name
+    print (features_labels_name)
 
     if os.path.isfile(features_labels_name):
-        print 'Features already present'
-        print 'Loading pickle: ' + features_labels_name + '...'
+        print ('Features already present')
+        print ('Loading pickle: ' + features_labels_name + '...')
         f = open(features_labels_name, 'rb')
         # disable garbage collector
         gc.disable()  # this improve the required loading time!
@@ -237,8 +236,8 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
         gc.enable()
         f.close()
     else:
-        print 'Generating Features'
-        print "Loading MIT BIH arr (" + DS + ") ..."
+        print ('Generating Features')
+        print ("Loading MIT BIH arr (" + DS + ") ...")
         # 102 and 104 do not have the MLII lead data
         # ML-II
         if not reduced_DS:
@@ -268,11 +267,11 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
         mit_pickle_name = mit_pickle_name + '_wL_' + str(winL) + '_wR_' + str(winR) + '_' + DS + '.p'
 
-        print mit_pickle_name
+        print (mit_pickle_name)
 
         # If the data with that configuration has been already computed Load pickle
         if os.path.isfile(mit_pickle_name):
-            print 'Loading Pickle' + mit_pickle_name + '...'
+            print ('Loading Pickle' + mit_pickle_name + '...')
             f = open(mit_pickle_name, 'rb')
             # disable garbage collector
             gc.disable()  # this improve the required loading time!
@@ -355,7 +354,7 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
         # Re-sampling
         if 'resample_10' in compute_morph:
-            print "Resample_10 ..."
+            print ("Resample_10 ...")
             f_raw = np.empty((0, 10 * num_leads))
             # 10 columns or 20 columns depending on the number of leads
             for p in range(len(my_db.beat)):
@@ -373,7 +372,7 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
         # Wavelets
         if 'wvlt' in compute_morph:
-            print "Wavelets ..."
+            print ("Wavelets ...")
             # 23 Features for each beat
             f_wav = np.empty((0, 23 * num_leads))
             for p in range(len(my_db.beat)):
