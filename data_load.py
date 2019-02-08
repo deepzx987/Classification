@@ -220,13 +220,15 @@ def load_signal(DS, winL, winR, do_preprocess):
 
 
 def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_morph, db_path, reduced_DS, leads_flag):
-    global RR
+    # global RR
     print 'Runing train_SVM.py!'
 
     features_labels_name = create_features_labels_name(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR,
                                                        compute_morph, db_path, reduced_DS, leads_flag)
+    print features_labels_name
 
     if os.path.isfile(features_labels_name):
+        print 'Features already present'
         print 'Loading pickle: ' + features_labels_name + '...'
         f = open(features_labels_name, 'rb')
         # disable garbage collector
@@ -235,8 +237,9 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
         gc.enable()
         f.close()
     else:
+        print 'Generating Features'
         print "Loading MIT BIH arr (" + DS + ") ..."
-        # 102 and 104 do not have the MLII lead data and 114 have the data on second coloumn
+        # 102 and 104 do not have the MLII lead data
         # ML-II
         if not reduced_DS:
             DS1 = [101, 106, 108, 109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220,
@@ -250,6 +253,12 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
             DS2 = [105, 111, 113, 121, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232, 233, 234]
 
         mit_pickle_name = db_path + '/python_mit'
+
+        if leads_flag[0] == 1:
+            mit_pickle_name += '_MLII'
+
+        if leads_flag[1] == 1:
+            mit_pickle_name += '_V1'
 
         if reduced_DS:
             mit_pickle_name = mit_pickle_name + '_reduced_'
@@ -343,9 +352,10 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
 
         num_leads = np.sum(leads_flag)
         #  If both leads then 2 leads and if only MLII then 1 lead
+
+        # Re-sampling
         if 'resample_10' in compute_morph:
             print "Resample_10 ..."
-            start = time.time()
             f_raw = np.empty((0, 10 * num_leads))
             # 10 columns or 20 columns depending on the number of leads
             for p in range(len(my_db.beat)):
@@ -360,8 +370,25 @@ def load_mit_db(DS, winL, winR, do_preprocess, maxRR, use_RR, norm_RR, compute_m
                                 f_raw_lead = np.hstack((f_raw_lead, resamp_beat))
                     f_raw = np.vstack((f_raw, f_raw_lead))
             features = np.column_stack((features, f_raw)) if features.size else f_raw
-            end = time.time()
-            print("Time resample: " + str(format(end - start, '.2f')) + " sec")
+
+        # Wavelets
+        if 'wvlt' in compute_morph:
+            print "Wavelets ..."
+            # 23 Features for each beat
+            f_wav = np.empty((0, 23 * num_leads))
+            for p in range(len(my_db.beat)):
+                for b in my_db.beat[p]:
+                    f_wav_lead = np.empty([])
+                    for s in range(2):
+                        if leads_flag[s] == 1:
+                            if f_wav_lead.size == 1:
+                                f_wav_lead = compute_wavelet_descriptor(b[s], 'db1', 3)
+                            else:
+                                f_wav_lead = np.hstack((f_wav_lead, compute_wavelet_descriptor(b[s], 'db1', 3)))
+                    f_wav = np.vstack((f_wav, f_wav_lead))
+                    # f_wav = np.vstack((f_wav, compute_wavelet_descriptor(b,  'db1', 3)))
+
+            features = np.column_stack((features, f_wav)) if features.size else f_wav
 
         # call other morphological features from here
 
