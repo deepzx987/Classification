@@ -1,4 +1,5 @@
 from classes import *
+import pywt
 
 
 def compute_rr_intervals(R_poses):
@@ -45,6 +46,89 @@ def compute_rr_intervals(R_poses):
         features_RR.global_R = np.append(features_RR.global_R, global_R[i])
 
     return features_RR
+
+def compute_wavelet_descriptor(beat, family, level):
+    coeffs = pywt.wavedec(beat, family, level=level)
+    return coeffs[0]
+
+def compute_lbp(signal, neigh=4):
+    hist_u_lbp = np.zeros(np.power(2, neigh), dtype=float)
+
+    avg_win_size = 2
+    # TODO: use some type of average of the data instead the full signal...
+    # Average window-5 of the signal?
+    # signal_avg = average_signal(signal, avg_win_size)
+    signal_avg = scipy.signal.resample(signal, len(signal) / avg_win_size)
+
+    for i in range(neigh / 2, len(signal) - neigh / 2):
+        pattern = np.zeros(neigh)
+        ind = 0
+        for n in range(-neigh / 2, 0) + range(1, neigh / 2 + 1):
+            if signal[i] > signal[i + n]:
+                pattern[ind] = 1
+            ind += 1
+        # Convert pattern to id-int 0-255 (for neigh == 8)
+        pattern_id = int("".join(str(c) for c in pattern.astype(int)), 2)
+
+        hist_u_lbp[pattern_id] += 1.0
+
+    return hist_u_lbp
+
+
+# uniform_pattern_list = np.array(
+#     [0, 1, 2, 3, 4, 6, 7, 8, 12, 14, 15, 16, 24, 28, 30, 31, 32, 48, 56, 60, 62, 63, 64, 96, 112, 120, 124, 126, 127,
+#      128, 129, 131, 135, 143, 159, 191, 192, 193, 195, 199, 207, 223, 224, 225, 227, 231, 239, 240, 241, 243, 247, 248, 249,
+#      251, 252, 253, 254, 255])
+
+# Compute the uniform LBP 1D from signal with neigh equal to number of neighbours
+# and return the 59 histogram:
+# 0-57: uniform patterns
+# 58: the non uniform pattern
+# NOTE: this method only works with neigh = 8
+# def compute_Uniform_LBP(signal, neigh=8):
+#     hist_u_lbp = np.zeros(59, dtype=float)
+#
+#     avg_win_size = 2
+#     # NOTE: Reduce sampling by half
+#     # signal_avg = scipy.signal.resample(signal, len(signal) / avg_win_size)
+#
+#     for i in range(neigh / 2, len(signal) - neigh / 2):
+#         pattern = np.zeros(neigh)
+#         ind = 0
+#         for n in range(-neigh / 2, 0) + range(1, neigh / 2 + 1):
+#             if signal[i] > signal[i + n]:
+#                 pattern[ind] = 1
+#             ind += 1
+#         # Convert pattern to id-int 0-255 (for neigh == 8)
+#         pattern_id = int("".join(str(c) for c in pattern.astype(int)), 2)
+#
+#         # Convert id to uniform LBP id 0-57 (uniform LBP)  58: (non uniform LBP)
+#         if pattern_id in uniform_pattern_list:
+#             pattern_uniform_id = int(np.argwhere(uniform_pattern_list == pattern_id))
+#         else:
+#             pattern_uniform_id = 58  # Non uniforms patternsuse
+#
+#         hist_u_lbp[pattern_uniform_id] += 1.0
+#
+#     return hist_u_lbp
+
+
+
+
+
+# https://docs.scipy.org/doc/numpy-1.13.0/reference/routines.polynomials.hermite.html
+# Support Vector Machine-Based Expert System for Reliable Heartbeat Recognition
+# 15 hermite coefficients!
+# def compute_HBF(beat):
+#     coeffs_hbf = np.zeros(15, dtype=float)
+#     coeffs_HBF_3 = hermfit(range(0, len(beat)), beat, 3)  # 3, 4, 5, 6?
+#     coeffs_HBF_4 = hermfit(range(0, len(beat)), beat, 4)
+#     coeffs_HBF_5 = hermfit(range(0, len(beat)), beat, 5)
+#     # coeffs_HBF_6 = hermfit(range(0,len(beat)), beat, 6)
+#
+#     coeffs_hbf = np.concatenate((coeffs_HBF_3, coeffs_HBF_4, coeffs_HBF_5))
+#
+#     return coeffs_hbf
 
 # Raw
 
@@ -141,26 +225,7 @@ def compute_rr_intervals(R_poses):
 #     features = np.column_stack((features, f_hbf)) if features.size else f_hbf
 #     print(features.shape)
 #
-# # Wavelets
-# if 'wvlt' in compute_morph:
-#     print("Wavelets ...")
-#
-#     f_wav = np.empty((0, 23 * num_leads))
-#
-#     for p in range(len(my_db.beat)):
-#         for b in my_db.beat[p]:
-#             f_wav_lead = np.empty([])
-#             for s in range(2):
-#                 if leads_flag[s] == 1:
-#                     if f_wav_lead.size == 1:
-#                         f_wav_lead = compute_wavelet_descriptor(b[s], 'db1', 3)
-#                     else:
-#                         f_wav_lead = np.hstack((f_wav_lead, compute_wavelet_descriptor(b[s], 'db1', 3)))
-#             f_wav = np.vstack((f_wav, f_wav_lead))
-#             # f_wav = np.vstack((f_wav, compute_wavelet_descriptor(b,  'db1', 3)))
-#
-#     features = np.column_stack((features, f_wav)) if features.size else f_wav
-#
+
 # # Wavelets
 # if 'wvlt+pca' in compute_morph:
 #     pca_k = 7
